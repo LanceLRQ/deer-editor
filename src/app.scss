@@ -1,0 +1,7 @@
+.deer-editor-main {
+  height: 100%;
+  overflow: hidden;
+  & > .deer-editor-main-layout {
+    height: 100%;
+  }
+}

@@ -1,18 +1,32 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow} = require('electron');
 const path = require('path')
 const { URL } = require('url');
-const mode = process.argv[2];
+const devMode = process.argv[2];
+const Store = require('electron-store');
+
+const storeOption={
+    name: "config",
+    fileExtension: "json",
+    cwd: app.getPath('userData'),
+    watch: true,
+}
+const store = new Store(storeOption);
+Store.initRenderer();
 
 const createWindow = () => {
     const win = new BrowserWindow({
         width: 1024,
         height: 640,
         webPreferences: {
-            devTools: mode === 'dev'
+            webSecurity: false,
+            devTools: devMode === 'dev',
+            preload: path.join(__dirname, 'preload.js')
         }
     });
 
-    if(mode === 'dev') {
+    require('./src/electron')(win, store);
+
+    if(devMode === 'dev') {
         win.loadURL("http://localhost:3000/")
     } else {
         win.loadURL(new URL('file://' + path.join(__dirname, './build/index.html')))
