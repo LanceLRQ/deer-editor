@@ -2,11 +2,11 @@ import { Layout } from "antd";
 
 const { Header } = Layout;
 
-function WorkSpaceLayout() {
+function EditorPage() {
     return <Layout>
         <Header>
 
         </Header>
     </Layout>
 }
-export default WorkSpaceLayout;
+export default EditorPage;

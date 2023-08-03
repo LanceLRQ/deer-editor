@@ -247,9 +247,7 @@ function WelcomePage() {
                         </Select>
                     </Form.Item>}
                     <Form.Item wrapperCol={{ offset: 4, span: 16 }}>
-                        <Button type="primary" htmlType="submit" onClick={() => {
-                            console.log(newProjectForm.getFieldsValue(true))
-                        }}>创建</Button>
+                        <Button type="primary" htmlType="submit">创建</Button>
                     </Form.Item>
                 </Form>
             </Layout.Content>}
