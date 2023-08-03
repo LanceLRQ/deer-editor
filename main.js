@@ -13,6 +13,8 @@ const storeOption={
 const store = new Store(storeOption);
 Store.initRenderer();
 
+let unscribStore = null
+
 const createWindow = () => {
     const win = new BrowserWindow({
         width: 1024,
@@ -24,7 +26,9 @@ const createWindow = () => {
         }
     });
 
-    require('./src/electron')(win, store);
+    unscribStore = store.onDidAnyChange((nv, ov) => {
+        win.webContents.send('Global:Setting:OnDidAnyChange', nv, ov);
+    })
 
     if(devMode === 'dev') {
         win.loadURL("http://localhost:3000/")
@@ -34,10 +38,15 @@ const createWindow = () => {
 };
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit()
+    if (process.platform !== 'darwin') {
+        app.quit()
+        return;
+    }
+    unscribStore && unscribStore();
 })
 
 app.whenReady().then(() => {
+    require('./src/electron/api')(store);
     createWindow()
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow()

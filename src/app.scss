@@ -4,4 +4,15 @@
   & > .deer-editor-main-layout {
     height: 100%;
   }
+  .deer-editor-main-layout-content {
+    display: flex;
+    flex-direction: column;
+    .deer-editor-scroll-layout {
+      overflow-y: auto;
+    }
+  }
+  .new-project-layout {
+    margin: 16px auto;
+    max-width: 440px
+  }
 }

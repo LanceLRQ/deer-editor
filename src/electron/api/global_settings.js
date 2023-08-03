@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron')
-module.exports = function (mainWindow, store) {
+module.exports = function (store) {
 
     const StoreSet = (event, key, val) => {
         return store.set(key, val)
@@ -9,11 +9,6 @@ module.exports = function (mainWindow, store) {
         return store.get(key)
     }
 
-
     ipcMain.handle('Global:Setting:Set', StoreSet)
     ipcMain.handle('Global:Setting:Get', StoreGet)
-
-    store.onDidAnyChange((nv, ov) => {
-        mainWindow.webContents.send('Global:Setting:OnDidAnyChange', nv, ov);
-    })
 }

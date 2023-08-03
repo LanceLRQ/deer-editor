@@ -8,7 +8,9 @@ contextBridge.exposeInMainWorld('versions', {
 
 contextBridge.exposeInMainWorld('DeerUtils', {
     FS: {
-        OpenDialog: (props) => ipcRenderer.invoke('FileSystem:OpenDialog', props)
+        OpenDialog: (props) => ipcRenderer.invoke('FileSystem:OpenDialog', props),
+        Walk: (dirPath, deep) => ipcRenderer.invoke('FileSystem:Walk', dirPath, deep),
+        Exists: (filePath) => ipcRenderer.invoke('FileSystem:Exists', filePath),
     },
     Global: {
         Setting: {
