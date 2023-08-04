@@ -19,6 +19,11 @@ contextBridge.exposeInMainWorld('DeerUtils', {
             OnDidAnyChange: (cb) => ipcRenderer.on('Global:Setting:OnDidAnyChange', cb),
             RemoveDidAnyChange: (cb) => ipcRenderer.removeListener('Global:Setting:OnDidAnyChange', cb),
         }
+    },
+    Shell: {
+        DeerExecutor: {
+            Run: (args) => ipcRenderer.invoke('Shell:DeerExecutor:Run', args)
+        }
     }
 })
 
