@@ -1,11 +1,12 @@
 import React from 'react';
 import {
-    Alert, List, Avatar, Row, Col, Form,
+    Alert, List, Avatar, Row, Col, Form, message, Popconfirm,
     Empty, Button, Space, Modal, Input, Typography, Layout, Menu, Select,
 } from "antd";
 import { getStringToAvatarStyle } from "../utils/color";
 import { SearchOutlined } from '@ant-design/icons';
-import {escapeRegExp, fileBasename} from "../utils/strings";
+import {escapeRegExp, fileBasename, sanitizeFilePath} from "../utils/strings";
+import path from 'path-browserify';
 
 const WorkSpaceSetting = React.forwardRef((props, ref) => {
     const [closable, setClosable] = React.useState(false);
@@ -66,6 +67,8 @@ function WelcomePage() {
     const [workSpace, setWorkSpace] = React.useState('');
     const [problemList, setProblemList] = React.useState([]);
     const [searchKey, setSearchKey] = React.useState('');
+    const [deleteDgOpen, setDeleteDgOpen] = React.useState({});
+    const [deleteOptLoading, setDeleteOptLoading] = React.useState(false);
     const [newProjectForm] = Form.useForm();
     const wssRef = React.useRef();
 
@@ -118,8 +121,50 @@ function WelcomePage() {
         return problemList;
     }, [problemList, searchKey]);
 
-    const handleNewProjectSubmit = async () => {
-        // TODO 在workspace下创建一个新的题目
+    const handleNewProjectSubmit = async (values) => {
+        // 在workspace下创建一个新的题目
+
+        const projectName = sanitizeFilePath(values.title.trim());
+        if (!projectName) {
+            message.error('题目名称为空，请重新输入');
+            return false;
+        }
+
+        const projectDir = path.join(workSpace, projectName);
+
+        const existsPDir = await window.DeerUtils.FS.Exists(projectDir);
+        if (existsPDir.exists) {
+            message.error('目录已存在，请使用其他名字');
+            return false;
+        }
+
+        let sampleFile = '';
+        if (tabKey === 'new') {
+            sampleFile = path.join(await window.DeerUtils.Global.AppPath(), values.sample)
+        } else if (tabKey === 'import') {
+            sampleFile = values.packagePath;
+            if (!sampleFile.trim()) {
+                message.error('请选择要导入的题目包');
+                return false;
+            }
+        }
+
+        const existsSample = await window.DeerUtils.FS.Exists(sampleFile);
+        if (!existsSample.exists) {
+            message.error('题目包文件不存在：' + sampleFile);
+            return false;
+        }
+
+        const ret = await window.DeerUtils.Shell.DeerExecutor.NewProblemProject(projectDir, sampleFile);
+        if (ret.code === 0) {
+            message.success('创建成功');
+            newProjectForm.resetFields();
+            setTabKey('home');
+            // 刷新列表
+            getProblemList().then(() => {});
+        } else {
+            message.error('创建失败：' + ret.message);
+        }
     }
 
     const menuItems = [
@@ -144,6 +189,32 @@ function WelcomePage() {
         }
     }
 
+    const handleDeleteConfirmOpen = React.useCallback((item) => {
+        setDeleteDgOpen({
+            [item.name]: true,  // 排他
+        })
+    }, [setDeleteDgOpen])
+
+    const handleDeleteProject = async(item) => {
+        setDeleteDgOpen({});
+        const projectDir = path.join(workSpace, item.name);
+        const existsPDir = await window.DeerUtils.FS.Exists(projectDir);
+        if (!existsPDir.exists) {
+            message.error('目录不存在');
+            getProblemList().then(() => {}); // 刷新列表
+            return false;
+        }
+        try {
+            await window.DeerUtils.FS.Delete(projectDir);
+            message.success('删除成功');
+            getProblemList().then(() => {}); // 刷新列表
+        } catch(e) {
+            message.error('删除失败：' + e);
+        } finally {
+            getProblemList().then(() => {}); // 刷新列表
+        }
+    }
+
     // == effect
     React.useEffect(() => {
         document.title = 'Deer Editor 欢迎页'
@@ -155,7 +226,14 @@ function WelcomePage() {
     }, [workSpace, getProblemList])
 
     React.useEffect(() => {
-        newProjectForm.resetFields();
+        if (newProjectForm) {
+            newProjectForm.resetFields();
+        }
+        if (tabKey === "home") {
+            // 刷新列表
+            getProblemList().then(() => {
+            });
+        }
     }, [tabKey, newProjectForm])
 
     return <>
@@ -212,9 +290,19 @@ function WelcomePage() {
                                     title={<Typography.Link>{item.name}</Typography.Link>}
                                     description={item.path}
                                 />
-                                <div>
-                                    <Typography.Link>[打包]</Typography.Link>
-                                </div>
+                                <Space>
+                                    <Button size="small" type="primary">打包</Button>
+                                    <Popconfirm
+                                        title="危险"
+                                        description="确定要删除这个题目吗？操作不可恢复！"
+                                        open={deleteDgOpen[item.name]}
+                                        onConfirm={() => handleDeleteProject(item)}
+                                        okButtonProps={{ loading: deleteOptLoading }}
+                                        onCancel={() => { setDeleteDgOpen({})}}
+                                    >
+                                        <Button size="small" type="primary" danger onClick={() => handleDeleteConfirmOpen(item)}>删除</Button>
+                                    </Popconfirm>
+                                </Space>
                             </List.Item>
                         )}
                     />
@@ -228,6 +316,11 @@ function WelcomePage() {
                     form={newProjectForm}
                     className="new-project-layout"
                     style={{ maxWidth: 440, marginTop: 100 }}
+                    initialValues={{
+                        title: '',
+                        sample: '',
+                        packagePath: ''
+                    }}
                     onFinish={handleNewProjectSubmit}
                 >
                     {tabKey === "import" && <Form.Item label="题目包路径">
@@ -241,9 +334,10 @@ function WelcomePage() {
                     <Form.Item label="题目名称" name="title">
                         <Input />
                     </Form.Item>
-                    {tabKey === "new" && <Form.Item label="使用模板">
-                        <Select disabled value="default">
-                            <Select.Option value="default">默认模板(A+B问题)</Select.Option>
+                    {tabKey === "new" && <Form.Item label="使用模板" name="sample">
+                        <Select>
+                            <Select.Option value="">不使用</Select.Option>
+                            <Select.Option value="./lib/sample/a+b">A+B问题</Select.Option>
                         </Select>
                     </Form.Item>}
                     <Form.Item wrapperCol={{ offset: 4, span: 16 }}>

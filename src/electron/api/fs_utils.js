@@ -68,6 +68,23 @@ module.exports = function () {
             return { error: err, exists: false, type: 'not found' };
         }
     }
+    const RemoveDirOrFiles = (directoryPath) => {
+        if (fs.existsSync(directoryPath)) {
+            const files = fs.readdirSync(directoryPath);
+
+            files.forEach((file) => {
+                const filePath = path.join(directoryPath, file);
+                const isDirectory = fs.statSync(filePath).isDirectory();
+
+                if (isDirectory) {
+                    RemoveDirOrFiles(filePath); // 递归删除子目录
+                } else {
+                    fs.unlinkSync(filePath); // 删除文件
+                }
+            });
+            fs.rmdirSync(directoryPath); // 删除空目录
+        }
+    }
     ipcMain.handle('FileSystem:OpenDialog', (event, props) => {
         return openDialog(props);
     })
@@ -76,5 +93,8 @@ module.exports = function () {
     })
     ipcMain.handle('FileSystem:Exists', (event, filePath) => {
         return isExists(filePath);
+    })
+    ipcMain.handle('FileSystem:Delete', (event, filePath) => {
+        return RemoveDirOrFiles(filePath);
     })
 }
