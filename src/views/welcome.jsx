@@ -1,10 +1,10 @@
 import React from 'react';
 import {
-    Alert, List, Avatar, Row, Col, Form, message, Popconfirm,
+    Alert, List, Avatar, Row, Col, Form, message, Popconfirm, theme,
     Empty, Button, Space, Modal, Input, Typography, Layout, Menu, Select,
 } from "antd";
 import { getStringToAvatarStyle } from "../utils/color";
-import { SearchOutlined } from '@ant-design/icons';
+import { SearchOutlined, HomeOutlined, AppstoreAddOutlined, ImportOutlined } from '@ant-design/icons';
 import {escapeRegExp, fileBasename, sanitizeFilePath} from "../utils/strings";
 import path from 'path-browserify';
 
@@ -69,7 +69,9 @@ function WelcomePage() {
     const [searchKey, setSearchKey] = React.useState('');
     const [deleteDgOpen, setDeleteDgOpen] = React.useState({});
     const [deleteOptLoading, setDeleteOptLoading] = React.useState(false);
+    const [tabCollapsed, setTabCollapsed] = React.useState(false);
     const [newProjectForm] = Form.useForm();
+    const {token: themeToken} = theme.useToken();
     const wssRef = React.useRef();
 
     const openWorkSpaceDialog = (closable) => {
@@ -168,9 +170,9 @@ function WelcomePage() {
     }
 
     const menuItems = [
-        { label: '开始', key: 'home' },
-        { label: '新建题目', key: 'new'},
-        { label: '导入题目', key: 'import' },
+        { label: '开始', key: 'home', icon: <HomeOutlined /> },
+        { label: '新建题目', key: 'new', icon: <AppstoreAddOutlined />},
+        { label: '导入题目', key: 'import', icon: <ImportOutlined /> },
     ]
 
     const chooseProblemPackage = async () => {
@@ -205,15 +207,18 @@ function WelcomePage() {
             return false;
         }
         try {
+            setDeleteOptLoading(true);
             await window.DeerUtils.FS.Delete(projectDir);
             message.success('删除成功');
             getProblemList().then(() => {}); // 刷新列表
         } catch(e) {
             message.error('删除失败：' + e);
         } finally {
+            setDeleteOptLoading(false);
             getProblemList().then(() => {}); // 刷新列表
         }
     }
+
 
     // == effect
     React.useEffect(() => {
@@ -234,117 +239,118 @@ function WelcomePage() {
             getProblemList().then(() => {
             });
         }
-    }, [tabKey, newProjectForm])
+    }, [tabKey, newProjectForm, getProblemList]);
 
     return <>
         <Layout className="deer-editor-main-layout">
-            <Row gutter={16} style={{ background: "#001529" }} justify="space-between">
-                <Col>
-                    <Menu
-                        theme="dark"
-                        mode="horizontal"
-                        selectedKeys={[tabKey]}
-                        items={menuItems}
-                        onSelect={({ key }) => {
-                            setTabKey(key);
-                        }}
-                    />
-                </Col>
-                <Col style={{marginRight: 16}}>
+            <Layout.Sider collapsible collapsed={tabCollapsed} onCollapse={(value) => setTabCollapsed(value)}>
+                <Menu
+                    theme="dark"
+                    selectedKeys={[tabKey]}
+                    items={menuItems}
+                    mode="inline"
+                    onSelect={({ key }) => {
+                        setTabKey(key);
+                    }}
+                />
+            </Layout.Sider>
+            <Layout>
+                {tabKey === 'home' && <Layout.Header style={{ padding: 0, background: themeToken.colorBgContainer }} >
                     <Input
+                        bordered={false}
                         style={{ marginTop: 8 }}
                         prefix={<SearchOutlined />}
                         placeholder="请输入要搜索的题目名称"
                         value={searchKey}
                         onChange={(e) => setSearchKey(e.target.value)}
                     />
-                </Col>
-            </Row>
-            {tabKey === 'home' && <Alert
-                banner
-                type="info"
-                message={<Row gutter={16}>
-                    <Col span={20}>
-                        <Typography.Text ellipsis>当前工作目录：{workSpace}</Typography.Text>
-                    </Col>
-                    <Col span={4} style={{ textAlign: 'right' }}>
-                        <Typography.Link onClick={() => openWorkSpaceDialog(true)}>[更改]</Typography.Link>
-                    </Col>
-                </Row>}
-            />}
-            {tabKey === 'home' && <Layout.Content className="deer-editor-main-layout-content">
-                {!problemList.length ? <Empty
-                    style={{ marginTop: 100 }}
-                    description={<Typography.Text strong>欢迎使用deer-executor编辑器</Typography.Text>}
-                >
-                    请先新建或者导入一个题目
-                </Empty> : (filteredProblemList.length ? <div className="deer-editor-scroll-layout">
-                    <List
-                        style={{ margin: 16 }}
-                        itemLayout="horizontal"
-                        dataSource={filteredProblemList}
-                        renderItem={(item) => (
-                            <List.Item>
-                                <List.Item.Meta
-                                    avatar={<Avatar style={getStringToAvatarStyle(item.name)}>{item.name[0]}</Avatar>}
-                                    title={<Typography.Link>{item.name}</Typography.Link>}
-                                    description={item.path}
-                                />
-                                <Space>
-                                    <Button size="small" type="primary">打包</Button>
-                                    <Popconfirm
-                                        title="危险"
-                                        description="确定要删除这个题目吗？操作不可恢复！"
-                                        open={deleteDgOpen[item.name]}
-                                        onConfirm={() => handleDeleteProject(item)}
-                                        okButtonProps={{ loading: deleteOptLoading }}
-                                        onCancel={() => { setDeleteDgOpen({})}}
-                                    >
-                                        <Button size="small" type="primary" danger onClick={() => handleDeleteConfirmOpen(item)}>删除</Button>
-                                    </Popconfirm>
-                                </Space>
-                            </List.Item>
-                        )}
-                    />
-                </div> : <Empty
-                    style={{ marginTop: 100 }}
-                    description={<Typography.Text strong>未能找到"{searchKey}"相关题目</Typography.Text>}
-                />)}
-            </Layout.Content>}
-            {(tabKey === "new" || tabKey === "import")&& <Layout.Content>
-                <Form
-                    form={newProjectForm}
-                    className="new-project-layout"
-                    style={{ maxWidth: 440, marginTop: 100 }}
-                    initialValues={{
-                        title: '',
-                        sample: '',
-                        packagePath: ''
-                    }}
-                    onFinish={handleNewProjectSubmit}
-                >
-                    {tabKey === "import" && <Form.Item label="题目包路径">
-                        <Space.Compact style={{ width: '100%' }}>
-                            <Form.Item noStyle name="packagePath">
-                                <Input readOnly />
-                            </Form.Item>
-                            <Button type="default" onClick={chooseProblemPackage}>选择题目包</Button>
-                        </Space.Compact>
-                    </Form.Item>}
-                    <Form.Item label="题目名称" name="title">
-                        <Input />
-                    </Form.Item>
-                    {tabKey === "new" && <Form.Item label="使用模板" name="sample">
-                        <Select>
-                            <Select.Option value="">不使用</Select.Option>
-                            <Select.Option value="./lib/sample/a+b">A+B问题</Select.Option>
-                        </Select>
-                    </Form.Item>}
-                    <Form.Item wrapperCol={{ offset: 4, span: 16 }}>
-                        <Button type="primary" htmlType="submit">创建</Button>
-                    </Form.Item>
-                </Form>
-            </Layout.Content>}
+                </Layout.Header>}
+                {tabKey === 'home' && <Layout.Content className="deer-editor-main-layout-content">
+                    {tabKey === 'home' && <Alert
+                        banner
+                        type="info"
+                        message={<Row gutter={16}>
+                            <Col span={20}>
+                                <Typography.Text ellipsis>当前工作目录：{workSpace}</Typography.Text>
+                            </Col>
+                            <Col span={4} style={{ textAlign: 'right' }}>
+                                <Typography.Link onClick={() => openWorkSpaceDialog(true)}>[更改]</Typography.Link>
+                            </Col>
+                        </Row>}
+                    />}
+                    {!problemList.length ? <Empty
+                        style={{ marginTop: 100 }}
+                        description={<Typography.Text strong>欢迎使用deer-executor编辑器</Typography.Text>}
+                    >
+                        请先新建或者导入一个题目
+                    </Empty> : (filteredProblemList.length ? <div className="deer-editor-scroll-layout">
+                        <List
+                            style={{ margin: 16 }}
+                            itemLayout="horizontal"
+                            dataSource={filteredProblemList}
+                            renderItem={(item) => (
+                                <List.Item>
+                                    <List.Item.Meta
+                                        avatar={<Avatar style={getStringToAvatarStyle(item.name)}>{item.name[0]}</Avatar>}
+                                        title={<Typography.Link>{item.name}</Typography.Link>}
+                                        description={item.path}
+                                    />
+                                    <Space>
+                                        <Button size="small" type="primary">打包</Button>
+                                        <Popconfirm
+                                            title="危险"
+                                            description="确定要删除这个题目吗？操作不可恢复！"
+                                            open={deleteDgOpen[item.name]}
+                                            onConfirm={() => handleDeleteProject(item)}
+                                            okButtonProps={{ loading: deleteOptLoading }}
+                                            onCancel={() => { setDeleteDgOpen({})}}
+                                        >
+                                            <Button size="small" type="primary" danger onClick={() => handleDeleteConfirmOpen(item)}>删除</Button>
+                                        </Popconfirm>
+                                    </Space>
+                                </List.Item>
+                            )}
+                        />
+                    </div> : <Empty
+                        style={{ marginTop: 100 }}
+                        description={<Typography.Text strong>未能找到"{searchKey}"相关题目</Typography.Text>}
+                    />)}
+                </Layout.Content>}
+                {(tabKey === "new" || tabKey === "import")&& <Layout.Content>
+                    <Form
+                        form={newProjectForm}
+                        className="new-project-layout"
+                        style={{ maxWidth: 440, marginTop: 100 }}
+                        initialValues={{
+                            title: '',
+                            sample: '',
+                            packagePath: ''
+                        }}
+                        onFinish={handleNewProjectSubmit}
+                    >
+                        {tabKey === "import" && <Form.Item label="题目包路径">
+                            <Space.Compact style={{ width: '100%' }}>
+                                <Form.Item noStyle name="packagePath">
+                                    <Input readOnly />
+                                </Form.Item>
+                                <Button type="default" onClick={chooseProblemPackage}>选择题目包</Button>
+                            </Space.Compact>
+                        </Form.Item>}
+                        <Form.Item label="题目名称" name="title">
+                            <Input />
+                        </Form.Item>
+                        {tabKey === "new" && <Form.Item label="使用模板" name="sample">
+                            <Select>
+                                <Select.Option value="">不使用</Select.Option>
+                                <Select.Option value="./lib/sample/a+b">A+B问题</Select.Option>
+                            </Select>
+                        </Form.Item>}
+                        <Form.Item wrapperCol={{ offset: 4, span: 16 }}>
+                            <Button type="primary" htmlType="submit">创建</Button>
+                        </Form.Item>
+                    </Form>
+                </Layout.Content>}
+            </Layout>
         </Layout>
         <WorkSpaceSetting ref={wssRef} />
     </>
