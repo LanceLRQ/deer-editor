@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('DeerUtils', {
     },
     Global: {
         AppPath: () => ipcRenderer.invoke('Global:AppPath'),
+        NewProjectWindow: (url, params, hideParent) => ipcRenderer.invoke('Global:NewProjectWindow', url, params, hideParent),
         Setting: {
             Set: (k, v) => ipcRenderer.invoke('Global:Setting:Set', k, v),
             Get: (k) => ipcRenderer.invoke('Global:Setting:Get', k),

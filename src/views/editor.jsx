@@ -1,12 +1,8 @@
 import { Layout } from "antd";
 
-const { Header } = Layout;
-
 function EditorPage() {
     return <Layout>
-        <Header>
-
-        </Header>
+        <Layout.Content>test editor page</Layout.Content>
     </Layout>
 }
 export default EditorPage;
